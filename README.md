@@ -42,7 +42,7 @@
 | 预定义状态    | Profile 定义的共享状态词汇                |
 | 自定义状态    | 包私有的状态扩展                          |
 | 预定义区块    | Profile 定义的标准区块                    |
-| 自定义区块    | 控件包或槽位包声明的非标准区块            |
+| 自定义区块    | 槽位包声明的非标准区块                    |
 | 槽位包        | 可选包类型，只声明槽位，不填充            |
 | Binding Table | 记录槽位与绑定关系的表                    |
 | 默认皮肤      | 内置包 `system.default`                   |
@@ -161,7 +161,7 @@ com.example.neon.session
 - 添加、删除、替换控件；
 - 定义区块结构、排列、尺寸、断点、折叠、停靠策略；
 - 声明预定义区块的控件；
-- 声明自定义区块；
+- 通过 `dependencies` 引入槽位包，并填充其声明的位置（见 §4.5 / §6.3）；
 - 添加快捷键声明；
 - 通过 Toast 发布通知；
 - 调用其它区块的内置 API。
@@ -200,7 +200,7 @@ com.example.neon.session
 
 皮肤包 **必须**：
 
-- 声明依赖的控件包与样式包版本；
+- 声明依赖的控件包、样式包与槽位包版本；
 - 声明兼容的 profile 版本；
 - 允许用户只替换其中一层。
 
@@ -233,9 +233,10 @@ com.example.neon.session
 使用场景：
 
 - 第三方定义槽位，让别的包填充；
-- 需要将槽位定义与实现解耦时。
+- 需要将槽位定义与实现解耦时；
+- 控件包需要自定义区块时——该区块 **必须** 由槽位包声明（见 §6.3），控件包可自行定义槽位包后作为依赖引入。
 
-若不使用槽位包，控件包 **可以** 自行声明并填充自定义区块。
+控件包与皮肤包若需使用槽位包声明的位置，**必须** 通过 `dependencies` 引入对应槽位包（§13.1 / §13.3）。控件包 **禁止** 自带 `customRegions`。
 
 ### 4.6 控件包是样式包的超集
 
@@ -291,12 +292,12 @@ com.example.neon.session
 
 ### 6.3 自定义区块
 
-自定义区块是控件包或槽位包声明的非标准区块。
+自定义区块是槽位包声明的非标准区块。
 
-- 控件包或槽位包 **可以** 声明自定义区块。
+- **槽位包** **可以** 声明自定义区块；控件包与皮肤包 **禁止** 声明，只能通过 `dependencies` 引入（§4.5 / §13.1 / §13.3）后填充。
 - 自定义区块使用 **短名**，例如 `sidebar-overlay`。
 - 短名 **必须** 在包内唯一。
-- 宿主自动加包名前缀，构造完整标识符，例如 `com.example.cyber.sidebar-overlay`。
+- 宿主自动加包名前缀，构造完整标识符，例如 `com.example.slot.overlay.sidebar-overlay`。
 - 自定义区块 **应当** 声明其默认 Z-Index。
 - 自定义区块 **应当** 提供 CSS 样式定义。
 - 自定义区块拥有自己的控件槽位与样式槽位。
@@ -400,6 +401,8 @@ com.example.neon.session
 - Z-Index 覆盖 **应当** 在设置界面中可编辑。
 - 自定义区块 **应当** 建立独立堆叠上下文，避免与预定义区块相互干扰。
 
+`customRegions` 属 **槽位包** 清单（§13.5），控件包与皮肤包不带该字段（§4.5 / §6.3）。示例：
+
 ```json
 {
     "customRegions": [
@@ -410,7 +413,7 @@ com.example.neon.session
                 "default": 1200
             },
             "style": {
-                "css": "com.example.cyber.sidebar-overlay"
+                "css": "com.example.slot.overlay.sidebar-overlay"
             }
         }
     ]
@@ -525,10 +528,12 @@ surface.toast.publish({
     "type": "control",
     "version": "1.0.0",
     "compatibility": {
-        "profile": "dsh-desktop-eac-ui-skin-profile@^0.3",
-        "forceable": true
+        "profile": "dsh-desktop-eac-ui-skin-profile@^0.3"
     },
     "owner": "com.example.cyber",
+    "dependencies": {
+        "com.example.slot.overlay": "1.0.0"
+    },
     "declarations": [
         {
             "region": "left-sidebar",
@@ -555,18 +560,6 @@ surface.toast.publish({
             ]
         }
     ],
-    "customRegions": [
-        {
-            "id": "sidebar-overlay",
-            "type": "region",
-            "zIndex": {
-                "default": 1200
-            },
-            "style": {
-                "css": "com.example.cyber.sidebar-overlay"
-            }
-        }
-    ],
     "shortcuts": [
         {
             "id": "com.example.cyber.toggle-overlay",
@@ -577,6 +570,10 @@ surface.toast.publish({
 }
 ```
 
+字段说明：
+
+- `dependencies`：**可以**。键为所依赖的包的 `id`，值为版本要求。控件包若需使用自定义区块，**必须** 依赖声明该区块的槽位包（§4.5 / §6.3）；控件包 **禁止** 自带 `customRegions`。
+
 ### 13.2 样式包
 
 ```json
@@ -585,8 +582,7 @@ surface.toast.publish({
     "type": "style",
     "version": "1.0.0",
     "compatibility": {
-        "profile": "dsh-desktop-eac-ui-skin-profile@^0.3",
-        "forceable": true
+        "profile": "dsh-desktop-eac-ui-skin-profile@^0.3"
     },
     "owner": "com.example.neon",
     "declarations": [
@@ -631,15 +627,25 @@ surface.toast.publish({
     "type": "skin",
     "version": "1.0.0",
     "compatibility": {
-        "profile": "dsh-desktop-eac-ui-skin-profile@^0.3",
-        "forceable": true
+        "profile": "dsh-desktop-eac-ui-skin-profile@^0.3"
     },
     "owner": "com.example.skin.cyber",
     "control": "com.example.cyber",
     "style": "com.example.neon",
+    "dependencies": {
+        "com.example.cyber": "1.0.0",
+        "com.example.neon": "1.0.0",
+        "com.example.slot.overlay": "1.0.0"
+    },
     "assets": []
 }
 ```
+
+字段说明：
+
+- `control` / `style`：**必须**。分别指向所整合的控件包与样式包的 `id`。
+- `dependencies`：**必须**。键为所依赖的包的 `id`，值为版本要求；**必须** 同时包含 `control` 与 `style` 指向的两个包（对应 §4.3 的义务）。皮肤包 **可以** 组合槽位包，同样通过本字段引入——槽位包 **不** 设顶层字段，因为 `control` / `style` 有顶层字段是出于 §7 / §8 的唯一绑定语义，而一个皮肤包可以依赖多个槽位包。
+- `assets`：**可以**。随包分发的资源清单，元素为**包根目录下的相对文件名**；为空数组表示不含额外资源。
 
 ### 13.4 插件包
 
@@ -649,8 +655,7 @@ surface.toast.publish({
     "type": "plugin",
     "version": "1.0.0",
     "compatibility": {
-        "profile": "dsh-desktop-eac-ui-skin-profile@^0.3",
-        "forceable": true
+        "profile": "dsh-desktop-eac-ui-skin-profile@^0.3"
     },
     "owner": "com.example.plugin.chat",
     "entry": {
@@ -674,8 +679,7 @@ surface.toast.publish({
     "type": "slot",
     "version": "1.0.0",
     "compatibility": {
-        "profile": "dsh-desktop-eac-ui-skin-profile@^0.3",
-        "forceable": true
+        "profile": "dsh-desktop-eac-ui-skin-profile@^0.3"
     },
     "owner": "com.example.slot.overlay",
     "customRegions": [
@@ -693,6 +697,8 @@ surface.toast.publish({
 }
 ```
 
+槽位包 **只声明，不填充**（§4.5）。控件包或皮肤包若要使用其中声明的位置，**必须** 通过各自的 `dependencies` 字段引入本包（§13.1 / §13.3）；反之，控件包 **禁止** 自带 `customRegions`。
+
 ---
 
 ## 14. 最小合规清单
@@ -709,7 +715,7 @@ surface.toast.publish({
 - [ ] 声明粒度 = 包 × 区块 × 类型
 - [ ] 控件包与样式包职责分离
 - [ ] 控件包提供 fallback
-- [ ] 控件包可声明自定义区块
+- [ ] 槽位包可声明自定义区块；控件包与皮肤包须通过 `dependencies` 引入
 - [ ] 自定义区块使用短名，宿主加包前缀
 - [ ] 自定义区块声明默认 Z-Index
 - [ ] 自定义区块提供 CSS 样式
@@ -728,5 +734,23 @@ surface.toast.publish({
 
 ---
 
-> 本公约为皮肤创作侧契约。主程序实现见《本体开发公约》。  
-> 后续应补充：正式 JSON Schema、fallback 接口详情、Toast 结构详情、快捷键冲突提示格式、自定义区块 Z-Index 用户覆盖存储格式、控件名 DOM 暴露规则。
+## 15. 附录：缺口状态
+
+本文档末尾原列有 6 项「后续应补充」。现状如下：
+
+| 项 | 状态 | 期间的判据 | 说明 |
+| --- | --- | --- | --- |
+| 正式 JSON Schema | **待补** | 按 §13 各包型的字段表手工核对 | 字段集需先冻结 |
+| fallback 接口详情 | **待补** | 按 §11.2 原条款 | §11.2 的控件调用降级接口细节仍待补 |
+| Toast 结构详情 | **推迟** | 按 §10 现有示例与级别枚举实现 | 需外部包实际接入才能确定合理形态 |
+| 快捷键冲突提示格式 | **推迟** | 按 §9 现有规则实现，冲突时禁用快捷键而非功能 | 同上 |
+| 自定义区块 Z-Index 用户覆盖存储格式 | **推迟** | 暂不实现该能力；区块按声明的默认 Z-Index | 同上 |
+| 控件名 DOM 暴露规则 | **推迟** | 按 §7.4 / §7.5 现行写法 | 同上 |
+
+**推迟不等于留白**：上表「期间的判据」列给出可照做的临时依据。推迟项的共性理由是——它们都需要 **外部包实际接入** 才能确定合理形态。
+
+---
+
+> 本公约为皮肤创作侧契约。
+>
+> **关于主程序侧的实现契约**：皮肤创作侧只需知道「宿主如何暴露挂接点」。主程序侧的完整实现规范（区块运行时、绑定表、皮肤选择与切换、`/skin/` 路由实现等）不在本公约范围内。此前本文档以《本体开发公约》指称该侧文档，但该文档 **尚未创建**；在此明确其范围为「宿主实现侧」，不以未发布的文档作为本公约的引用依据。
